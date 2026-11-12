@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Hệ Thống Thư Viện - Đăng Nhập & Phân Quyền</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #f8fafc; }</style>
+</head>
+<body class="p-4 md:p-6">
+
+    <div id="loginScreen" class="fixed inset-0 bg-slate-900 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-5">
+            <div class="text-center space-y-1">
+                <i class="fa-solid fa-book-journal-whills text-blue-600 text-4xl mb-2"></i>
+                <h2 class="text-xl font-bold text-slate-800">ĐĂNG NHẬP HỆ THỐNG</h2>
+                <p class="text-xs text-slate-500">Quản lý Thư viện - Phân quyền RBAC</p>
+            </div>
+
+            <form id="loginForm" class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Tài khoản:</label>
+                    <input type="text" id="loginUser" value="thuthu01" required class="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Mật khẩu:</label>
+                    <input type="password" id="loginPass" value="123" required class="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shadow-md transition">
+                    Đăng Nhập Ngay
+                </button>
+            </form>
+
+            <div class="border-t pt-3 text-[11px] text-slate-500 space-y-1">
+                <div class="font-bold text-slate-700">Tài khoản mẫu:</div>
+                <div>• Quản trị: <b>admin</b> / 123</div>
+                <div>• Thủ thư: <b>thuthu01</b> / 123</div>
+                <div>• Bạn đọc: <b>bandoc01</b> / 123</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainApp" class="max-w-7xl mx-auto space-y-4 hidden">
+        <div class="bg-slate-900 text-white p-4 rounded-xl flex justify-between items-center shadow-lg">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-book-journal-whills text-amber-400 text-2xl"></i>
+                <div>
+                    <h1 class="font-bold text-base tracking-wide">HỆ THỐNG QUẢN LÝ THƯ VIỆN</h1>
+                    <p class="text-xs text-slate-400">Đã đăng nhập: <b id="lblUserHandled" class="text-amber-300"></b></p>
+                </div>
+            </div>
+            <button onclick="logout()" class="bg-red-600/80 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1">
+                <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
+            </button>
+        </div>
+
+        <div class="flex border-b border-slate-300 bg-white rounded-t-xl px-2 pt-2 text-xs font-bold text-slate-600 gap-1 overflow-x-auto">
+            <button id="btn-dashboard" onclick="switchTab('tab-dashboard')" class="tab-btn role-admin role-librarian px-4 py-2.5 rounded-t-lg bg-blue-600 text-white"><i class="fa-solid fa-chart-pie mr-1"></i> Dashboard</button>
+            <button id="btn-kho" onclick="switchTab('tab-khor')" class="tab-btn role-admin role-librarian px-4 py-2.5 rounded-t-lg hover:bg-slate-100"><i class="fa-solid fa-boxes-stacked mr-1"></i> Kho Sách & Barcode</button>
+            <button id="btn-bandoc" onclick="switchTab('tab-bandoc')" class="tab-btn role-admin role-librarian px-4 py-2.5 rounded-t-lg hover:bg-slate-100"><i class="fa-solid fa-id-card mr-1"></i> Thẻ Bạn Đọc (UC02)</button>
+            <button id="btn-muontra" onclick="switchTab('tab-muontra')" class="tab-btn role-admin role-librarian px-4 py-2.5 rounded-t-lg hover:bg-slate-100"><i class="fa-solid fa-right-left mr-1"></i> Mượn - Trả Sách</button>
+            <button id="btn-phat" onclick="switchTab('tab-phat')" class="tab-btn role-admin role-librarian px-4 py-2.5 rounded-t-lg hover:bg-slate-100"><i class="fa-solid fa-receipt mr-1"></i> Thu Phí Phạt</button>
+            <button id="btn-opac" onclick="switchTab('tab-opac')" class="tab-btn role-admin role-librarian role-reader px-4 py-2.5 rounded-t-lg hover:bg-slate-100 text-indigo-600"><i class="fa-solid fa-globe mr-1"></i> Tra Cứu OPAC</button>
+        </div>
+
+        <div id="tab-dashboard" class="tab-content bg-white p-5 rounded-b-xl shadow border border-slate-200">
+            <h3 class="font-bold text-slate-800 mb-3">Tổng Quan Hệ Thống</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-xs">
+                <div class="bg-blue-50 p-4 rounded-xl border"><div class="text-2xl font-bold text-blue-700" id="cntDauSach">0</div><div>Đầu Sách</div></div>
+                <div class="bg-purple-50 p-4 rounded-xl border"><div class="text-2xl font-bold text-purple-700" id="cntCuonSach">0</div><div>Bản Sách Cá Biệt</div></div>
+                <div class="bg-emerald-50 p-4 rounded-xl border"><div class="text-2xl font-bold text-emerald-700" id="cntBanDoc">0</div><div>Thẻ Bạn Đọc</div></div>
+                <div class="bg-amber-50 p-4 rounded-xl border"><div class="text-2xl font-bold text-amber-700" id="cntPhieuMuon">0</div><div>Phiếu Mượn Lưu Thông</div></div>
+            </div>
+        </div>
+
+        <div id="tab-khor" class="tab-content hidden bg-white p-5 rounded-b-xl shadow border border-slate-200 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+                <div class="space-y-3 bg-slate-50 p-4 rounded-lg border">
+                    <h3 class="font-bold text-sm text-slate-800">Khai Báo Đầu Sách Mới</h3>
+                    <input type="text" id="txtTenSach" placeholder="Tên đầu sách..." class="w-full border p-2 rounded">
+                    <input type="number" id="txtGiaBia" placeholder="Giá bìa (VNĐ)..." class="w-full border p-2 rounded">
+                    <button onclick="themDauSach()" class="w-full bg-blue-600 text-white font-bold py-2 rounded">Khai Báo Đầu Sách</button>
+                </div>
+                <div class="md:col-span-2 space-y-3">
+                    <h3 class="font-bold text-sm text-slate-800">Nhập Kho & Tạo Mã Barcode</h3>
+                    <div class="flex gap-2">
+                        <select id="slDauSachNhap" class="flex-1 border p-2 rounded bg-white text-xs"></select>
+                        <input type="number" id="txtSoLuongNhap" value="2" class="w-24 border p-2 rounded text-xs">
+                        <button onclick="nhapKho()" class="bg-purple-600 text-white font-bold px-4 rounded text-xs">Nhập Kho</button>
+                    </div>
+                    <div class="overflow-x-auto max-h-60 border rounded">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100"><tr><th class="p-2">Barcode</th><th class="p-2">Tên Đầu Sách</th><th class="p-2">Trạng Thái</th></tr></thead>
+                            <tbody id="tblCuonSach" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-bandoc" class="tab-content hidden bg-white p-5 rounded-b-xl shadow border border-slate-200 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
+                <div class="space-y-3 bg-slate-50 p-4 rounded-lg border">
+                    <h3 class="font-bold text-sm text-slate-800">Cấp Thẻ Bạn Đọc Mới (UC02)</h3>
+                    <input type="text" id="txtMaSV" placeholder="Mã SV/GV (VD: 24100492)..." class="w-full border p-2 rounded">
+                    <input type="text" id="txtHoTenBD" placeholder="Họ và tên..." class="w-full border p-2 rounded">
+                    <select id="slDoiTuong" class="w-full border p-2 rounded bg-white">
+                        <option value="Sinh viên">Sinh viên (Hạn 1 năm)</option>
+                        <option value="Giảng viên">Giảng viên (Hạn 3 năm)</option>
+                    </select>
+                    <button onclick="capThe()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded">Xác Nhận Tạo Thẻ</button>
+                </div>
+                <div class="md:col-span-2 overflow-x-auto border rounded max-h-72">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-100"><tr><th class="p-2">Mã Thẻ</th><th class="p-2">Họ Tên</th><th class="p-2">Đối Tượng</th><th class="p-2">Ngày Hết Hạn</th><th class="p-2">Trạng Thái</th></tr></thead>
+                        <tbody id="tblBanDoc" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-muontra" class="tab-content hidden bg-white p-5 rounded-b-xl shadow border border-slate-200 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                <div class="space-y-3 bg-slate-50 p-4 rounded-lg border">
+                    <h3 class="font-bold text-sm text-amber-700"><i class="fa-solid fa-cart-plus"></i> Lập Phiếu Mượn Sách</h3>
+                    <div><label class="block font-semibold mb-1">Thẻ Bạn Đọc:</label><select id="slTheMuon" class="w-full border p-2 rounded bg-white"></select></div>
+                    <div><label class="block font-semibold mb-1">Mã Barcode Cuốn Sách:</label><select id="slBarcodeMuon" class="w-full border p-2 rounded bg-white"></select></div>
+                    <button onclick="lapMuon()" class="w-full bg-amber-600 text-white font-bold py-2 rounded">Xác Nhận Cho Mượn</button>
+                </div>
+                <div class="space-y-3">
+                    <h3 class="font-bold text-sm text-slate-800">Danh Sách Phiếu Mượn & Xử Lý Trả</h3>
+                    <div class="overflow-x-auto border rounded max-h-60">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100"><tr><th class="p-2">Mã Phiếu</th><th class="p-2">Bạn Đọc</th><th class="p-2">Barcode</th><th class="p-2">Thao Tác</th></tr></thead>
+                            <tbody id="tblPhieuMuon" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-phat" class="tab-content hidden bg-white p-5 rounded-b-xl shadow border border-slate-200 space-y-4 text-xs">
+            <h3 class="font-bold text-sm text-red-700">Lịch Sử Biển Lai Thu Tiền Phạt Quá Hạn</h3>
+            <div class="overflow-x-auto border rounded">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-100"><tr><th class="p-2">Mã Biên Lai</th><th class="p-2">Bạn Đọc</th><th class="p-2">Lý Do Phạt</th><th class="p-2">Số Tiền (VNĐ)</th><th class="p-2">Ngày Thu</th></tr></thead>
+                    <tbody id="tblThuPhat" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-opac" class="tab-content hidden bg-white p-5 rounded-b-xl shadow border border-slate-200 space-y-4 text-xs">
+            <h3 class="font-bold text-sm text-indigo-700"><i class="fa-solid fa-magnifying-glass"></i> Tra Cứu Mục Lục Sách Trực Tuyến (OPAC Reader Portal)</h3>
+            <div class="overflow-x-auto border rounded">
+                <table class="w-full text-left">
+                    <thead class="bg-indigo-50 text-indigo-900"><tr><th class="p-2">Mã Đầu Sách</th><th class="p-2">Tên Đầu Sách</th><th class="p-2">Thể Loại</th><th class="p-2">Vị Trí Kệ</th><th class="p-2">Giá Bìa</th></tr></thead>
+                    <tbody id="tblOPAC" class="divide-y"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUser').value;
+            const password = document.getElementById('loginPass').value;
+
+            try {
+                const res = await fetch('/api/v1/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    currentUser = data.user;
+                    alert(`✅ ${data.message}`);
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    document.getElementById('lblUserHandled').innerText = `${currentUser.hoTen} (${currentUser.role})`;
+                    
+                    applyRolePermissions(currentUser.role);
+                    loadSystemData();
+                } else {
+                    alert(`❌ Lỗi: ${data.message}`);
+                }
+            } catch (err) {
+                alert('Không thể kết nối tới Server!');
+            }
+        });
+
+        function applyRolePermissions(role) {
+            const roleClass = `role-${role.toLowerCase()}`;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if (btn.classList.contains(roleClass)) {
+                    btn.classList.remove('hidden');
+                } else {
+                    btn.classList.add('hidden');
+                }
+            });
+
+            if (role === 'READER') {
+                switchTab('tab-opac');
+            } else {
+                switchTab('tab-dashboard');
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+        }
+
+        async function loadSystemData() {
+            const res = await fetch('/api/v1/system-summary');
+            const result = await res.json();
+            const data = result.data;
+
+            document.getElementById('cntDauSach').innerText = data.dauSach.length;
+            document.getElementById('cntCuonSach').innerText = data.cuonSach.length;
+            document.getElementById('cntBanDoc').innerText = data.banDoc.length;
+            document.getElementById('cntPhieuMuon').innerText = data.phieuMuon.filter(p => p.trangThai !== 'Đã trả').length;
+
+            document.getElementById('slDauSachNhap').innerHTML = data.dauSach.map(b => `<option value="${b.maDauSach}">${b.maDauSach} - ${b.tenSach}</option>`).join('');
+            document.getElementById('slTheMuon').innerHTML = data.banDoc.filter(c => c.trangThai === 'Hoạt động').map(c => `<option value="${c.maThe}">${c.maThe} - ${c.hoTen}</option>`).join('');
+            document.getElementById('slBarcodeMuon').innerHTML = data.cuonSach.filter(b => b.trangThai === 'Sẵn sàng').map(b => `<option value="${b.maBarcode}">${b.maBarcode} - ${b.tenSach}</option>`).join('');
+
+            document.getElementById('tblCuonSach').innerHTML = data.cuonSach.map(b => `<tr><td class="p-2 font-mono font-bold text-blue-600">${b.maBarcode}</td><td class="p-2">${b.tenSach}</td><td class="p-2"><span class="px-2 py-0.5 rounded text-[10px] ${b.trangThai === 'Sẵn sàng' ? 'bg-green-100 text-green-700 font-bold' : 'bg-red-100 text-red-700'}">${b.trangThai}</span></td></tr>`).join('');
+            document.getElementById('tblBanDoc').innerHTML = data.banDoc.map(c => `<tr><td class="p-2 font-mono font-bold text-emerald-700">${c.maThe}</td><td class="p-2">${c.hoTen} (${c.maSV})</td><td class="p-2">${c.doiTuong}</td><td class="p-2">${c.ngayHetHan}</td><td class="p-2"><span class="bg-green-100 text-green-800 font-bold px-2 py-0.5 rounded">${c.trangThai}</span></td></tr>`).join('');
+            document.getElementById('tblPhieuMuon').innerHTML = data.phieuMuon.map(p => `<tr><td class="p-2 font-mono font-bold text-amber-700">${p.maPhieu}</td><td class="p-2">${p.hoTen}</td><td class="p-2 font-mono">${p.maBarcode}</td><td class="p-2">${p.trangThai === 'Đã trả' ? '<span class="text-slate-400">Đã trả</span>' : `<button onclick="traSach('${p.maPhieu}')" class="bg-blue-600 text-white px-2 py-1 rounded">Trả Sách</button>`}</td></tr>`).join('');
+            document.getElementById('tblThuPhat').innerHTML = data.thuPhat.map(p => `<tr><td class="p-2 font-mono font-bold text-red-700">${p.maBienLai}</td><td class="p-2">${p.hoTen}</td><td class="p-2">${p.lyDo}</td><td class="p-2 font-bold text-red-600">${p.soTien.toLocaleString()} VNĐ</td><td class="p-2 text-slate-500">${p.ngayThu}</td></tr>`).join('');
+            document.getElementById('tblOPAC').innerHTML = data.dauSach.map(b => `<tr><td class="p-2 font-mono font-bold text-indigo-700">${b.maDauSach}</td><td class="p-2 font-bold">${b.tenSach}</td><td class="p-2">${b.theLoai}</td><td class="p-2"><span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">${b.ke}</span></td><td class="p-2">${b.giaBia.toLocaleString()} VNĐ</td></tr>`).join('');
+        }
+
+        async function themDauSach() {
+            const tenSach = document.getElementById('txtTenSach').value;
+            const giaBia = document.getElementById('txtGiaBia').value;
+            if(!tenSach) return alert('Vui lòng nhập tên đầu sách!');
+            await fetch('/api/v1/dau-sach', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ tenSach, giaBia, theLoai: 'CNTT', tacGia: 'Tác giả', nxb: 'NXB', ke: 'Kệ A1' }) });
+            alert('Khai báo thành công!'); loadSystemData();
+        }
+
+        async function nhapKho() {
+            const maDauSach = document.getElementById('slDauSachNhap').value;
+            const soLuong = document.getElementById('txtSoLuongNhap').value;
+            await fetch('/api/v1/nhap-kho', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ maDauSach, soLuong }) });
+            alert('Nhập kho và sinh Barcode thành công!'); loadSystemData();
+        }
+
+        async function capThe() {
+            const maSV = document.getElementById('txtMaSV').value;
+            const hoTen = document.getElementById('txtHoTenBD').value;
+            const doiTuong = document.getElementById('slDoiTuong').value;
+            if(!maSV || !hoTen) return alert('Nhập mã SV và Họ tên!');
+            const res = await fetch('/api/v1/ban-doc', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ maSV, hoTen, doiTuong }) });
+            const data = await res.json(); alert(data.message); loadSystemData();
+        }
+
+        async function lapMuon() {
+            const maThe = document.getElementById('slTheMuon').value;
+            const maBarcode = document.getElementById('slBarcodeMuon').value;
+            const res = await fetch('/api/v1/phieu-muon', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ maThe, maBarcode }) });
+            const data = await res.json(); alert(data.message); loadSystemData();
+        }
+
+        async function traSach(maPhieu) {
+            const res = await fetch('/api/v1/tra-sach', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ maPhieu }) });
+            const data = await res.json(); alert(data.message); loadSystemData();
+        }
+    </script>
+</body>
+</html>

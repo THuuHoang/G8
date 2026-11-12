@@ -1,0 +1,12 @@
+{
+  "name": "library-enterprise-system",
+  "version": "2.0.0",
+  "description": "Enterprise Library Management System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
