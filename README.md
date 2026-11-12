@@ -92,7 +92,7 @@ Hệ thống đã khởi tạo sẵn dữ liệu mẫu gồm đầu sách, mã B
 
 | STT | Mã sinh viên | Họ và tên | Vai trò / Nhiệm vụ chính |
 | :---: | :---: | :--- | :--- |
-| 1 | `[24100492]` | `[Trần Hữu Hoàng]` | Phân tích nghiệp vụ, đặc tả Use-case, tổng hợp báo cáo |
-| 2 | `[]` | `[]` | Thiết kế biểu đồ UML & cấu trúc dữ liệu |
-| 3 | `[]` | `[]` | Phát triển Backend Node.js/Express & phân quyền RBAC |
-| 4 | `[]` | `[]` | Xây dựng giao diện SPA & kiểm thử hệ thống |
+| 1 | `24100492` | `Trần Hữu Hoàng` | Phân tích nghiệp vụ, đặc tả Use-case, tổng hợp báo cáo |
+| 2 | `` | `` | Thiết kế biểu đồ UML & cấu trúc dữ liệu |
+| 3 | `` | `` | Phát triển Backend Node.js/Express & phân quyền RBAC |
+| 4 | `` | `` | Xây dựng giao diện SPA & kiểm thử hệ thống |
