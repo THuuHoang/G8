@@ -2,281 +2,1276 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Hệ Thống Thư Viện - Đăng Nhập & Phân Quyền</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Quản lý Thư viện (LMS)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #f8fafc; }</style>
+    <style>
+        .barcode-bars {
+            height: 46px;
+            background: repeating-linear-gradient(
+                90deg,
+                #0f172a 0px, #0f172a 2px,
+                transparent 2px, transparent 4px,
+                #0f172a 4px, #0f172a 7px,
+                transparent 7px, transparent 10px,
+                #0f172a 10px, #0f172a 11px,
+                transparent 11px, transparent 14px
+            );
+        }
+        @media print {
+            body * { visibility: hidden; }
+            #printBarcodeArea, #printBarcodeArea * { visibility: visible; }
+            #printBarcodeArea { position: fixed; left: 20px; top: 20px; width: 320px; }
+        }
+    </style>
 </head>
-<body class="p-4 md:p-6">
+<body class="bg-slate-100 text-slate-800 min-h-screen font-sans">
 
-    <div id="loginScreen" class="fixed inset-0 bg-slate-900 flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl space-y-5">
-            <div class="text-center space-y-1">
-                <i class="fa-solid fa-book-journal-whills text-blue-600 text-4xl mb-2"></i>
-                <h2 class="text-xl font-bold text-slate-800">ĐĂNG NHẬP HỆ THỐNG</h2>
-                <p class="text-xs text-slate-500">Quản lý Thư viện - Phân quyền RBAC</p>
+    <div id="toast" class="fixed top-5 right-5 z-50 hidden max-w-md px-5 py-3.5 rounded-xl shadow-lg text-white font-medium text-sm"></div>
+
+    <!-- MODAL ĐỔI MẬT KHẨU -->
+    <div id="passwordModal" class="fixed inset-0 bg-slate-900/60 z-40 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-900">Đổi mật khẩu tài khoản</h3>
+                <button onclick="closeModal('passwordModal')" class="text-slate-400 hover:text-slate-700 font-bold text-xl">&times;</button>
             </div>
-
-            <form id="loginForm" class="space-y-4 text-xs">
+            <form id="changePasswordForm" class="space-y-3">
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Tài khoản:</label>
-                    <input type="text" id="loginUser" value="thuthu01" required class="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Mật khẩu hiện tại</label>
+                    <input type="password" id="oldPasswordInput" required class="w-full px-3.5 py-2 border rounded-lg text-sm">
                 </div>
                 <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Mật khẩu:</label>
-                    <input type="password" id="loginPass" value="123" required class="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Mật khẩu mới</label>
+                    <input type="password" id="newPasswordInput" required class="w-full px-3.5 py-2 border rounded-lg text-sm">
                 </div>
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shadow-md transition">
-                    Đăng Nhập Ngay
-                </button>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeModal('passwordModal')" class="px-4 py-2 rounded-lg border text-sm">Hủy</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold text-sm">Cập nhật mật khẩu</button>
+                </div>
             </form>
+        </div>
+    </div>
 
-            <div class="border-t pt-3 text-[11px] text-slate-500 space-y-1">
-                <div class="font-bold text-slate-700">Tài khoản mẫu:</div>
-                <div>• Quản trị: <b>admin</b> / 123</div>
-                <div>• Thủ thư: <b>thuthu01</b> / 123</div>
-                <div>• Bạn đọc: <b>bandoc01</b> / 123</div>
+    <!-- MODAL IN TEM BARCODE -->
+    <div id="barcodeModal" class="fixed inset-0 bg-slate-900/60 z-40 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-900">Tem nhãn Barcode cá biệt</h3>
+                <button onclick="closeModal('barcodeModal')" class="text-slate-400 hover:text-slate-700 font-bold text-xl">&times;</button>
+            </div>
+            <div id="printBarcodeArea" class="border-2 border-dashed border-slate-400 rounded-xl p-4 text-center bg-white space-y-2">
+                <div class="text-xs font-bold uppercase tracking-wider text-slate-500">THƯ VIỆN TRUNG TÂM</div>
+                <div id="pbTitle" class="font-bold text-sm text-slate-900"></div>
+                <div class="barcode-bars mx-auto w-56 my-2"></div>
+                <div id="pbCode" class="font-mono font-extrabold text-lg tracking-widest text-slate-900"></div>
+                <div id="pbMeta" class="text-xs text-slate-600"></div>
+            </div>
+            <div class="flex justify-end gap-2 mt-5">
+                <button type="button" onclick="closeModal('barcodeModal')" class="px-4 py-2 rounded-lg border text-sm">Đóng</button>
+                <button type="button" onclick="window.print()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm">
+                    In tem Barcode
+                </button>
             </div>
         </div>
     </div>
 
-    <div id="mainApp" class="max-w-7xl mx-auto space-y-4 hidden">
-        <div class="bg-slate-900 text-white p-4 rounded-xl flex justify-between items-center shadow-lg">
-            <div class="flex items-center space-x-3">
-                <i class="fa-solid fa-book-journal-whills text-amber-400 text-2xl"></i>
+    <!-- MÀN HÌNH ĐĂNG NHẬP -->
+    <div id="loginView" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+            <div class="text-center mb-7">
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 text-white text-2xl font-bold mb-3 shadow-md">LMS</div>
+                <h1 class="text-2xl font-bold text-slate-900">Hệ thống Quản lý Thư viện</h1>
+                <p class="text-sm text-slate-500 mt-1">Đăng nhập theo vai trò Use Case</p>
+            </div>
+
+            <form id="loginForm" class="space-y-4">
                 <div>
-                    <h1 class="font-bold text-base tracking-wide">HỆ THỐNG QUẢN LÝ THƯ VIỆN</h1>
-                    <p class="text-xs text-slate-400">Đã đăng nhập: <b id="lblUserHandled" class="text-amber-300"></b></p>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Tên đăng nhập</label>
+                    <input type="text" id="loginUsername" required placeholder="Nhập tài khoản..."
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-1">Mật khẩu</label>
+                    <input type="password" id="loginPassword" required placeholder="Nhập mật khẩu..."
+                        class="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl shadow transition">
+                    Đăng nhập hệ thống
+                </button>
+            </form>
+
+            <div class="mt-6 pt-5 border-t border-slate-200">
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2.5 text-center">Tài khoản 3 tác nhân (Actors)</p>
+                <div class="grid grid-cols-3 gap-2 text-xs">
+                    <button type="button" onclick="quickFill('thuthu01', '123')" class="p-2.5 rounded-lg border hover:bg-emerald-50 hover:border-emerald-300 text-center">
+                        <div class="font-bold text-emerald-700">Thủ thư</div>
+                        <div class="text-slate-500">thuthu01 / 123</div>
+                    </button>
+                    <button type="button" onclick="quickFill('admin', '123')" class="p-2.5 rounded-lg border hover:bg-purple-50 hover:border-purple-300 text-center">
+                        <div class="font-bold text-purple-700">Quản trị viên</div>
+                        <div class="text-slate-500">admin / 123</div>
+                    </button>
+                    <button type="button" onclick="quickFill('bandoc01', '123')" class="p-2.5 rounded-lg border hover:bg-blue-50 hover:border-blue-300 text-center">
+                        <div class="font-bold text-blue-700">Bạn đọc</div>
+                        <div class="text-slate-500">bandoc01 / 123</div>
+                    </button>
                 </div>
             </div>
-            <button onclick="logout()" class="bg-red-600/80 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition flex items-center gap-1">
-                <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
-            </button>
         </div>
+    </div>
 
-        <div class="flex border-b border-slate-300 bg-white rounded-t-xl px-2 pt-2 text-xs font-bold text-slate-600 gap-1 overflow-x-auto">
-            <button id="btn-dashboard" onclick="switchTab('tab-dashboard')" class="tab-btn role-admin role-librarian px-4 py-2.5 rounded-t-lg bg-blue-600 text-white"><i class="fa-solid fa-chart-pie mr-1"></i> Dashboard</button>
-            <button id="btn-kho" onclick="switchTab('tab-khor')" class="tab-btn role-admin role-librarian px-4 py-2.5 rounded-t-lg hover:bg-slate-100"><i class="fa-solid fa-boxes-stacked mr-1"></i> Kho Sách & Barcode</button>
-            <button id="btn-bandoc" onclick="switchTab('tab-bandoc')" class="tab-btn role-admin role-librarian px-4 py-2.5 rounded-t-lg hover:bg-slate-100"><i class="fa-solid fa-id-card mr-1"></i> Thẻ Bạn Đọc (UC02)</button>
-            <button id="btn-muontra" onclick="switchTab('tab-muontra')" class="tab-btn role-admin role-librarian px-4 py-2.5 rounded-t-lg hover:bg-slate-100"><i class="fa-solid fa-right-left mr-1"></i> Mượn - Trả Sách</button>
-            <button id="btn-phat" onclick="switchTab('tab-phat')" class="tab-btn role-admin role-librarian px-4 py-2.5 rounded-t-lg hover:bg-slate-100"><i class="fa-solid fa-receipt mr-1"></i> Thu Phí Phạt</button>
-            <button id="btn-opac" onclick="switchTab('tab-opac')" class="tab-btn role-admin role-librarian role-reader px-4 py-2.5 rounded-t-lg hover:bg-slate-100 text-indigo-600"><i class="fa-solid fa-globe mr-1"></i> Tra Cứu OPAC</button>
-        </div>
-
-        <div id="tab-dashboard" class="tab-content bg-white p-5 rounded-b-xl shadow border border-slate-200">
-            <h3 class="font-bold text-slate-800 mb-3">Tổng Quan Hệ Thống</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-xs">
-                <div class="bg-blue-50 p-4 rounded-xl border"><div class="text-2xl font-bold text-blue-700" id="cntDauSach">0</div><div>Đầu Sách</div></div>
-                <div class="bg-purple-50 p-4 rounded-xl border"><div class="text-2xl font-bold text-purple-700" id="cntCuonSach">0</div><div>Bản Sách Cá Biệt</div></div>
-                <div class="bg-emerald-50 p-4 rounded-xl border"><div class="text-2xl font-bold text-emerald-700" id="cntBanDoc">0</div><div>Thẻ Bạn Đọc</div></div>
-                <div class="bg-amber-50 p-4 rounded-xl border"><div class="text-2xl font-bold text-amber-700" id="cntPhieuMuon">0</div><div>Phiếu Mượn Lưu Thông</div></div>
-            </div>
-        </div>
-
-        <div id="tab-khor" class="tab-content hidden bg-white p-5 rounded-b-xl shadow border border-slate-200 space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
-                <div class="space-y-3 bg-slate-50 p-4 rounded-lg border">
-                    <h3 class="font-bold text-sm text-slate-800">Khai Báo Đầu Sách Mới</h3>
-                    <input type="text" id="txtTenSach" placeholder="Tên đầu sách..." class="w-full border p-2 rounded">
-                    <input type="number" id="txtGiaBia" placeholder="Giá bìa (VNĐ)..." class="w-full border p-2 rounded">
-                    <button onclick="themDauSach()" class="w-full bg-blue-600 text-white font-bold py-2 rounded">Khai Báo Đầu Sách</button>
+    <!-- GIAO DIỆN SAU ĐĂNG NHẬP -->
+    <div id="appView" class="hidden min-h-screen flex flex-col">
+        <header class="bg-slate-900 text-white shadow-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="bg-blue-600 px-3 py-1 rounded-lg font-bold text-sm">LMS</span>
+                    <span class="font-semibold text-lg">Hệ thống Quản lý Thư viện</span>
                 </div>
-                <div class="md:col-span-2 space-y-3">
-                    <h3 class="font-bold text-sm text-slate-800">Nhập Kho & Tạo Mã Barcode</h3>
-                    <div class="flex gap-2">
-                        <select id="slDauSachNhap" class="flex-1 border p-2 rounded bg-white text-xs"></select>
-                        <input type="number" id="txtSoLuongNhap" value="2" class="w-24 border p-2 rounded text-xs">
-                        <button onclick="nhapKho()" class="bg-purple-600 text-white font-bold px-4 rounded text-xs">Nhập Kho</button>
+                <div class="flex items-center gap-3 text-sm">
+                    <div class="text-right mr-1">
+                        <div id="headerFullName" class="font-semibold"></div>
+                        <div id="headerRoleBadge" class="text-xs text-blue-300"></div>
                     </div>
-                    <div class="overflow-x-auto max-h-60 border rounded">
-                        <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-100"><tr><th class="p-2">Barcode</th><th class="p-2">Tên Đầu Sách</th><th class="p-2">Trạng Thái</th></tr></thead>
-                            <tbody id="tblCuonSach" class="divide-y"></tbody>
+                    <button onclick="openModal('passwordModal')" class="bg-slate-700 hover:bg-blue-600 px-3 py-1.5 rounded-lg font-medium transition">
+                        Đổi mật khẩu
+                    </button>
+                    <button onclick="logout()" class="bg-slate-700 hover:bg-rose-600 px-3 py-1.5 rounded-lg font-medium transition">
+                        Đăng xuất
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 1. PHÂN HỆ THỦ THƯ -->
+        <main id="librarianWorkspace" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-5">
+            <div class="flex flex-wrap gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                <button onclick="switchTab('lib', 'borrow')" id="lib-tab-borrow" class="lib-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-600 text-white">
+                    Lập Phiếu mượn sách
+                </button>
+                <button onclick="switchTab('lib', 'return')" id="lib-tab-return" class="lib-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                    Xử lý Trả sách & Thu tiền phạt
+                </button>
+                <button onclick="switchTab('lib', 'copies')" id="lib-tab-copies" class="lib-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                    Quản lý Bản sách & In Barcode
+                </button>
+                <button onclick="switchTab('lib', 'books')" id="lib-tab-books" class="lib-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                    Quản lý Đầu sách & Danh mục
+                </button>
+                <button onclick="switchTab('lib', 'imports')" id="lib-tab-imports" class="lib-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                    Lập Phiếu nhập sách
+                </button>
+                <button onclick="switchTab('lib', 'readers')" id="lib-tab-readers" class="lib-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                    Cấp & Quản lý Thẻ bạn đọc
+                </button>
+                <button onclick="switchTab('lib', 'reports')" id="lib-tab-reports" class="lib-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                    Báo cáo & Thống kê nghiệp vụ
+                </button>
+            </div>
+
+            <section id="lib-panel-borrow" class="lib-panel space-y-6">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-lg font-bold text-slate-800 mb-4">Lập Phiếu mượn sách</h3>
+                        <form id="borrowForm" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Mã thẻ bạn đọc *</label>
+                                <input type="text" id="borrowCardId" required placeholder="VD: DG001" class="w-full px-3.5 py-2 border rounded-lg uppercase">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Mã Barcode bản sách *</label>
+                                <input type="text" id="borrowBarcode" required placeholder="VD: BC-1002" class="w-full px-3.5 py-2 border rounded-lg uppercase">
+                            </div>
+                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg">
+                                Xác nhận Lập phiếu mượn
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-lg font-bold text-slate-800 mb-1">Yêu cầu gia hạn sách trực tuyến từ Bạn đọc</h3>
+                        <p class="text-xs text-slate-500 mb-3">Duyệt hoặc từ chối yêu cầu gia hạn hạn trả của bạn đọc.</p>
+                        <div id="libRenewalList" class="space-y-2.5 max-h-60 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-3">Danh sách Phiếu mượn đang lưu thông</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-600 border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">Mã phiếu</th>
+                                    <th class="py-2.5 px-3">Bạn đọc</th>
+                                    <th class="py-2.5 px-3">Barcode</th>
+                                    <th class="py-2.5 px-3">Tên sách</th>
+                                    <th class="py-2.5 px-3">Ngày mượn</th>
+                                    <th class="py-2.5 px-3">Hạn trả</th>
+                                    <th class="py-2.5 px-3">Gia hạn</th>
+                                </tr>
+                            </thead>
+                            <tbody id="libActiveLoansBody" class="divide-y"></tbody>
                         </table>
                     </div>
                 </div>
-            </div>
-        </div>
+            </section>
 
-        <div id="tab-bandoc" class="tab-content hidden bg-white p-5 rounded-b-xl shadow border border-slate-200 space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
-                <div class="space-y-3 bg-slate-50 p-4 rounded-lg border">
-                    <h3 class="font-bold text-sm text-slate-800">Cấp Thẻ Bạn Đọc Mới (UC02)</h3>
-                    <input type="text" id="txtMaSV" placeholder="Mã SV/GV (VD: 24100492)..." class="w-full border p-2 rounded">
-                    <input type="text" id="txtHoTenBD" placeholder="Họ và tên..." class="w-full border p-2 rounded">
-                    <select id="slDoiTuong" class="w-full border p-2 rounded bg-white">
-                        <option value="Sinh viên">Sinh viên (Hạn 1 năm)</option>
-                        <option value="Giảng viên">Giảng viên (Hạn 3 năm)</option>
+            <section id="lib-panel-return" class="lib-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 max-w-2xl">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Xử lý Trả sách & Thu tiền phạt</h3>
+                    <form id="returnForm" class="space-y-4">
+                        <div class="grid sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Mã Barcode bản sách trả *</label>
+                                <input type="text" id="returnBarcode" required placeholder="VD: BC-1001" class="w-full px-3.5 py-2 border rounded-lg uppercase">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Ngày trả thực tế (Trống = Hôm nay)</label>
+                                <input type="date" id="returnCustomDate" class="w-full px-3.5 py-2 border rounded-lg">
+                            </div>
+                        </div>
+                        <label class="flex items-center gap-2 text-sm text-slate-700">
+                            <input type="checkbox" id="collectFineCheck" checked class="rounded text-emerald-600">
+                            <span>Xác nhận đã thu tiền phạt quá hạn trực tiếp tại quầy (nếu phát sinh trễ hạn)</span>
+                        </label>
+                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2.5 rounded-lg">
+                            Hoàn tất Trả sách & Thu phạt
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-3">Lịch sử Trả sách & Biên lai thu tiền phạt</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-600 border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">Mã phiếu</th>
+                                    <th class="py-2.5 px-3">Bạn đọc</th>
+                                    <th class="py-2.5 px-3">Barcode / Sách</th>
+                                    <th class="py-2.5 px-3">Hạn trả</th>
+                                    <th class="py-2.5 px-3">Ngày trả</th>
+                                    <th class="py-2.5 px-3 text-right">Tiền phạt</th>
+                                    <th class="py-2.5 px-3">Trạng thái thu</th>
+                                </tr>
+                            </thead>
+                            <tbody id="libReturnedLoansBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="lib-panel-copies" class="lib-panel hidden space-y-4">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex gap-3">
+                    <input type="text" id="copySearchInput" oninput="renderCopiesTable()" placeholder="Tìm theo mã Barcode (BC-1001), ISBN hoặc tên sách..."
+                        class="flex-1 px-4 py-2 border rounded-lg text-sm">
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-3">Danh sách Bản sách vật lý & In tem Barcode</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-600 border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">Mã Barcode</th>
+                                    <th class="py-2.5 px-3">Đầu sách (ISBN)</th>
+                                    <th class="py-2.5 px-3">Vị trí kệ</th>
+                                    <th class="py-2.5 px-3">Phiếu nhập</th>
+                                    <th class="py-2.5 px-3">Trạng thái</th>
+                                    <th class="py-2.5 px-3">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="libCopiesBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="lib-panel-books" class="lib-panel hidden space-y-6">
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="md:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-lg font-bold text-slate-800 mb-4">Thêm Đầu sách mới</h3>
+                        <form id="addBookForm" class="grid sm:grid-cols-2 gap-3">
+                            <input type="text" id="bookIsbn" required placeholder="Mã ISBN (VD: 978-604-06) *" class="px-3 py-2 border rounded-lg text-sm">
+                            <input type="text" id="bookTitle" required placeholder="Tên đầu sách *" class="px-3 py-2 border rounded-lg text-sm">
+                            <input type="text" id="bookAuthor" required placeholder="Tác giả *" class="px-3 py-2 border rounded-lg text-sm">
+                            <select id="bookCategorySelect" class="px-3 py-2 border rounded-lg text-sm bg-white"></select>
+                            <input type="text" id="bookPublisher" placeholder="Nhà xuất bản" class="px-3 py-2 border rounded-lg text-sm">
+                            <input type="number" id="bookYear" value="2025" placeholder="Năm xuất bản" class="px-3 py-2 border rounded-lg text-sm">
+                            <button type="submit" class="sm:col-span-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm">
+                                + Lưu đầu sách vào danh mục
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-lg font-bold text-slate-800 mb-3">Danh mục Thể loại</h3>
+                        <form id="addCategoryForm" class="flex gap-2 mb-3">
+                            <input type="text" id="newCategoryName" required placeholder="Tên thể loại mới..." class="flex-1 px-3 py-1.5 border rounded-lg text-sm">
+                            <button type="submit" class="bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Thêm</button>
+                        </form>
+                        <div id="categoryBadges" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-3">Danh sách Đầu sách hiện có</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-600 border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">ISBN</th>
+                                    <th class="py-2.5 px-3">Tên sách</th>
+                                    <th class="py-2.5 px-3">Tác giả</th>
+                                    <th class="py-2.5 px-3">Danh mục</th>
+                                    <th class="py-2.5 px-3">Số bản</th>
+                                    <th class="py-2.5 px-3">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="libBooksBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="lib-panel-imports" class="lib-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">Lập Phiếu nhập sách vào kho</h3>
+                    <p class="text-xs text-slate-500 mb-4">Hệ thống tự động sinh mã Barcode cá biệt cho toàn bộ số lượng sách được nhập.</p>
+                    <form id="importSlipForm" class="grid md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Chọn đầu sách nhập *</label>
+                            <select id="importBookSelect" required class="w-full px-3 py-2 border rounded-lg text-sm bg-white"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Số lượng nhập (cuốn) *</label>
+                            <input type="number" id="importQty" min="1" max="100" value="2" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Đơn giá nhập (VNĐ)</label>
+                            <input type="number" id="importPrice" min="0" step="1000" value="100000" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Nhà cung cấp / Nguồn nhập</label>
+                            <input type="text" id="importSupplier" placeholder="VD: NXB Giáo dục" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Vị trí xếp kệ</label>
+                            <input type="text" id="importLocation" value="Kệ A1 - Tầng 1" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Ghi chú phiếu nhập</label>
+                            <input type="text" id="importNote" placeholder="Ghi chú..." class="w-full px-3 py-2 border rounded-lg text-sm">
+                        </div>
+                        <div class="md:col-span-3">
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-lg text-sm">
+                                Lưu Phiếu nhập sách & Sinh Barcode
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-3">Danh sách Phiếu nhập sách đã lập</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-600 border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">Mã phiếu</th>
+                                    <th class="py-2.5 px-3">Ngày nhập</th>
+                                    <th class="py-2.5 px-3">Đầu sách</th>
+                                    <th class="py-2.5 px-3">SL</th>
+                                    <th class="py-2.5 px-3">Thành tiền</th>
+                                    <th class="py-2.5 px-3">Mã Barcode đã sinh</th>
+                                </tr>
+                            </thead>
+                            <tbody id="libImportsBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="lib-panel-readers" class="lib-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Cấp Thẻ bạn đọc mới</h3>
+                    <form id="createReaderForm" class="grid md:grid-cols-3 gap-3">
+                        <input type="text" id="readerFullName" required placeholder="Họ và tên bạn đọc *" class="px-3.5 py-2 border rounded-lg text-sm">
+                        <input type="text" id="readerStudentCode" placeholder="Mã SV / CMND" class="px-3.5 py-2 border rounded-lg text-sm">
+                        <input type="text" id="readerPhone" placeholder="Số điện thoại" class="px-3.5 py-2 border rounded-lg text-sm">
+                        <input type="email" id="readerEmail" placeholder="Email liên hệ" class="px-3.5 py-2 border rounded-lg text-sm">
+                        <input type="text" id="readerUsername" required placeholder="Tài khoản đăng nhập OPAC *" class="px-3.5 py-2 border rounded-lg text-sm">
+                        <input type="text" id="readerPassword" required value="123" placeholder="Mật khẩu *" class="px-3.5 py-2 border rounded-lg text-sm">
+                        <button type="submit" class="md:col-span-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm">
+                            + Cấp Thẻ bạn đọc & Kích hoạt tài khoản
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-3">Danh sách Thẻ bạn đọc</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-600 border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">Mã thẻ</th>
+                                    <th class="py-2.5 px-3">Họ tên / Mã SV</th>
+                                    <th class="py-2.5 px-3">Tài khoản</th>
+                                    <th class="py-2.5 px-3">Hạn thẻ</th>
+                                    <th class="py-2.5 px-3">Trạng thái</th>
+                                    <th class="py-2.5 px-3">Quản lý thẻ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="libReadersBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="lib-panel-reports" class="lib-panel hidden space-y-6">
+                <div id="libReportContainer"></div>
+            </section>
+        </main>
+
+        <!-- 2. PHÂN HỆ QUẢN TRỊ VIÊN -->
+        <main id="adminWorkspace" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-5">
+            <div class="flex flex-wrap gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                <button onclick="switchTab('admin', 'users')" id="admin-tab-users" class="admin-tab px-4 py-2 rounded-lg text-sm font-semibold bg-purple-700 text-white">
+                    Quản trị người dùng & Phân quyền
+                </button>
+                <button onclick="switchTab('admin', 'settings')" id="admin-tab-settings" class="admin-tab px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                    Cấu hình quy định thư viện
+                </button>
+                <button onclick="switchTab('admin', 'reports')" id="admin-tab-reports" class="admin-tab px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                    Báo cáo & Thống kê nghiệp vụ
+                </button>
+            </div>
+
+            <section id="admin-panel-users" class="admin-panel space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Tạo tài khoản cán bộ (Thủ thư / Quản trị viên)</h3>
+                    <form id="createStaffUserForm" class="grid md:grid-cols-4 gap-3">
+                        <input type="text" id="staffFullName" required placeholder="Họ và tên *" class="px-3.5 py-2 border rounded-lg text-sm">
+                        <input type="text" id="staffUsername" required placeholder="Tên đăng nhập *" class="px-3.5 py-2 border rounded-lg text-sm">
+                        <input type="text" id="staffPassword" required value="123" placeholder="Mật khẩu *" class="px-3.5 py-2 border rounded-lg text-sm">
+                        <select id="staffRole" class="px-3.5 py-2 border rounded-lg text-sm bg-white">
+                            <option value="LIBRARIAN">Vai trò: Thủ thư</option>
+                            <option value="ADMIN">Vai trò: Quản trị viên</option>
+                        </select>
+                        <button type="submit" class="md:col-span-4 bg-purple-700 hover:bg-purple-800 text-white font-semibold py-2 rounded-lg text-sm">
+                            + Tạo tài khoản & Cấp quyền
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-3">Danh sách Người dùng & Phân quyền hệ thống</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-600 border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">ID</th>
+                                    <th class="py-2.5 px-3">Tài khoản</th>
+                                    <th class="py-2.5 px-3">Họ và tên</th>
+                                    <th class="py-2.5 px-3">Phân quyền (Role)</th>
+                                    <th class="py-2.5 px-3">Trạng thái</th>
+                                    <th class="py-2.5 px-3">Thao tác quản trị</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminUsersBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="admin-panel-settings" class="admin-panel hidden">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 max-w-2xl">
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">Cấu hình quy định thư viện</h3>
+                    <p class="text-sm text-slate-500 mb-5">Thiết lập các quy tắc lưu thông áp dụng chung cho toàn hệ thống.</p>
+                    <form id="settingsForm" class="space-y-4">
+                        <div class="grid sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Mức phạt trễ hạn (VNĐ / ngày)</label>
+                                <input type="number" id="setFinePerDay" min="0" step="1000" required class="w-full px-3.5 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Thời hạn mượn mặc định (ngày)</label>
+                                <input type="number" id="setDefaultLoanDays" min="1" required class="w-full px-3.5 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Số sách mượn tối đa / bạn đọc (cuốn)</label>
+                                <input type="number" id="setMaxBooks" min="1" required class="w-full px-3.5 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Số ngày cộng thêm mỗi lần gia hạn</label>
+                                <input type="number" id="setRenewDays" min="1" required class="w-full px-3.5 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Số lần gia hạn tối đa / phiếu</label>
+                                <input type="number" id="setMaxRenewals" min="0" required class="w-full px-3.5 py-2 border rounded-lg text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Hiệu lực thẻ bạn đọc mới cấp (tháng)</label>
+                                <input type="number" id="setCardMonths" min="1" required class="w-full px-3.5 py-2 border rounded-lg text-sm">
+                            </div>
+                        </div>
+                        <button type="submit" class="bg-purple-700 hover:bg-purple-800 text-white font-semibold px-6 py-2.5 rounded-lg text-sm">
+                            Lưu cấu hình quy định
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <section id="admin-panel-reports" class="admin-panel hidden space-y-6">
+                <div id="adminReportContainer"></div>
+            </section>
+        </main>
+
+        <!-- 3. PHÂN HỆ BẠN ĐỌC -->
+        <main id="readerWorkspace" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-5">
+            <div class="bg-gradient-to-r from-blue-700 to-slate-900 text-white rounded-2xl p-6 shadow-md flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <span class="text-xs uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded font-semibold">Thẻ Bạn Đọc Thư Viện</span>
+                    <h2 id="rdFullName" class="text-2xl font-bold mt-1">---</h2>
+                    <p class="text-sm text-blue-100 mt-1">
+                        Mã thẻ: <b id="rdCardId">---</b> • Hạn thẻ: <b id="rdExpiry">---</b>
+                    </p>
+                </div>
+                <div class="flex gap-4 text-center">
+                    <div class="bg-white/10 px-4 py-2.5 rounded-xl">
+                        <div class="text-xs text-blue-200">Đang mượn</div>
+                        <div id="rdActiveCount" class="text-xl font-bold">0 / 5</div>
+                    </div>
+                    <div class="bg-white/10 px-4 py-2.5 rounded-xl">
+                        <div class="text-xs text-blue-200">Tiền phạt</div>
+                        <div id="rdFineTotal" class="text-xl font-bold text-amber-300">0đ</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                <button onclick="switchTab('reader', 'opac')" id="reader-tab-opac" class="reader-tab px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white">
+                    Tra cứu mục lục sách (OPAC)
+                </button>
+                <button onclick="switchTab('reader', 'history')" id="reader-tab-history" class="reader-tab px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                    Xem lịch sử mượn & Hạn trả
+                </button>
+                <button onclick="switchTab('reader', 'renew')" id="reader-tab-renew" class="reader-tab px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100">
+                    Yêu cầu gia hạn sách trực tuyến
+                </button>
+            </div>
+
+            <section id="reader-panel-opac" class="reader-panel space-y-4">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row gap-3">
+                    <input type="text" id="opacKeyword" oninput="loadOpac()" placeholder="Tìm theo tên sách, tác giả, mã ISBN..."
+                        class="flex-1 px-4 py-2 border rounded-lg text-sm">
+                    <select id="opacCategory" onchange="loadOpac()" class="px-4 py-2 border rounded-lg text-sm bg-white">
+                        <option value="">Tất cả danh mục</option>
                     </select>
-                    <button onclick="capThe()" class="w-full bg-emerald-600 text-white font-bold py-2 rounded">Xác Nhận Tạo Thẻ</button>
                 </div>
-                <div class="md:col-span-2 overflow-x-auto border rounded max-h-72">
-                    <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-100"><tr><th class="p-2">Mã Thẻ</th><th class="p-2">Họ Tên</th><th class="p-2">Đối Tượng</th><th class="p-2">Ngày Hết Hạn</th><th class="p-2">Trạng Thái</th></tr></thead>
-                        <tbody id="tblBanDoc" class="divide-y"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+                <div id="opacResultsGrid" class="grid md:grid-cols-2 gap-4"></div>
+            </section>
 
-        <div id="tab-muontra" class="tab-content hidden bg-white p-5 rounded-b-xl shadow border border-slate-200 space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-                <div class="space-y-3 bg-slate-50 p-4 rounded-lg border">
-                    <h3 class="font-bold text-sm text-amber-700"><i class="fa-solid fa-cart-plus"></i> Lập Phiếu Mượn Sách</h3>
-                    <div><label class="block font-semibold mb-1">Thẻ Bạn Đọc:</label><select id="slTheMuon" class="w-full border p-2 rounded bg-white"></select></div>
-                    <div><label class="block font-semibold mb-1">Mã Barcode Cuốn Sách:</label><select id="slBarcodeMuon" class="w-full border p-2 rounded bg-white"></select></div>
-                    <button onclick="lapMuon()" class="w-full bg-amber-600 text-white font-bold py-2 rounded">Xác Nhận Cho Mượn</button>
-                </div>
-                <div class="space-y-3">
-                    <h3 class="font-bold text-sm text-slate-800">Danh Sách Phiếu Mượn & Xử Lý Trả</h3>
-                    <div class="overflow-x-auto border rounded max-h-60">
-                        <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-100"><tr><th class="p-2">Mã Phiếu</th><th class="p-2">Bạn Đọc</th><th class="p-2">Barcode</th><th class="p-2">Thao Tác</th></tr></thead>
-                            <tbody id="tblPhieuMuon" class="divide-y"></tbody>
+            <section id="reader-panel-history" class="reader-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-bold text-slate-800 mb-3">Sách đang mượn & Theo dõi hạn trả</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-600 border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">Mã phiếu</th>
+                                    <th class="py-2.5 px-3">Barcode</th>
+                                    <th class="py-2.5 px-3">Tên sách</th>
+                                    <th class="py-2.5 px-3">Ngày mượn</th>
+                                    <th class="py-2.5 px-3">Hạn trả</th>
+                                    <th class="py-2.5 px-3">Tình trạng</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rdActiveLoansBody" class="divide-y"></tbody>
                         </table>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <div id="tab-phat" class="tab-content hidden bg-white p-5 rounded-b-xl shadow border border-slate-200 space-y-4 text-xs">
-            <h3 class="font-bold text-sm text-red-700">Lịch Sử Biển Lai Thu Tiền Phạt Quá Hạn</h3>
-            <div class="overflow-x-auto border rounded">
-                <table class="w-full text-left">
-                    <thead class="bg-slate-100"><tr><th class="p-2">Mã Biên Lai</th><th class="p-2">Bạn Đọc</th><th class="p-2">Lý Do Phạt</th><th class="p-2">Số Tiền (VNĐ)</th><th class="p-2">Ngày Thu</th></tr></thead>
-                    <tbody id="tblThuPhat" class="divide-y"></tbody>
-                </table>
-            </div>
-        </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-bold text-slate-800 mb-3">Lịch sử mượn trả trước đây</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-600 border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">Mã phiếu</th>
+                                    <th class="py-2.5 px-3">Tên sách</th>
+                                    <th class="py-2.5 px-3">Ngày mượn</th>
+                                    <th class="py-2.5 px-3">Ngày trả</th>
+                                    <th class="py-2.5 px-3 text-right">Tiền phạt</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rdHistoryLoansBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
-        <div id="tab-opac" class="tab-content hidden bg-white p-5 rounded-b-xl shadow border border-slate-200 space-y-4 text-xs">
-            <h3 class="font-bold text-sm text-indigo-700"><i class="fa-solid fa-magnifying-glass"></i> Tra Cứu Mục Lục Sách Trực Tuyến (OPAC Reader Portal)</h3>
-            <div class="overflow-x-auto border rounded">
-                <table class="w-full text-left">
-                    <thead class="bg-indigo-50 text-indigo-900"><tr><th class="p-2">Mã Đầu Sách</th><th class="p-2">Tên Đầu Sách</th><th class="p-2">Thể Loại</th><th class="p-2">Vị Trí Kệ</th><th class="p-2">Giá Bìa</th></tr></thead>
-                    <tbody id="tblOPAC" class="divide-y"></tbody>
-                </table>
-            </div>
-        </div>
+            <section id="reader-panel-renew" class="reader-panel hidden space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">Gửi yêu cầu gia hạn sách trực tuyến</h3>
+                    <p class="text-sm text-slate-500 mb-4">Chọn cuốn sách đang mượn để gửi yêu cầu gia hạn thêm thời gian tới Thủ thư.</p>
+                    <form id="renewRequestForm" class="grid md:grid-cols-3 gap-3">
+                        <select id="renewLoanSelect" required class="px-3.5 py-2 border rounded-lg text-sm bg-white"></select>
+                        <input type="text" id="renewReasonInput" placeholder="Lý do gia hạn (VD: Cần thêm thời gian làm đồ án)" class="px-3.5 py-2 border rounded-lg text-sm">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-sm">
+                            Gửi yêu cầu gia hạn
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-3">Trạng thái các yêu cầu gia hạn đã gửi</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-slate-50 text-slate-600 border-b">
+                                <tr>
+                                    <th class="py-2.5 px-3">Mã YC</th>
+                                    <th class="py-2.5 px-3">Tên sách (Barcode)</th>
+                                    <th class="py-2.5 px-3">Hạn cũ &rarr; Hạn đề xuất</th>
+                                    <th class="py-2.5 px-3">Lý do</th>
+                                    <th class="py-2.5 px-3">Trạng thái duyệt</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rdRenewalsBody" class="divide-y"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
     </div>
 
     <script>
         let currentUser = null;
+        let allCopiesCache = [];
+
+        function esc(s) {
+            if (s === null || s === undefined) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function money(n) {
+            return Number(n || 0).toLocaleString('vi-VN') + 'đ';
+        }
+
+        function showToast(msg, isError = false) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = `fixed top-5 right-5 z-50 max-w-md px-5 py-3.5 rounded-xl shadow-lg text-white font-medium text-sm ${isError ? 'bg-rose-600' : 'bg-emerald-600'}`;
+            el.classList.remove('hidden');
+            clearTimeout(window._t);
+            window._t = setTimeout(() => el.classList.add('hidden'), 3500);
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        async function api(url, method = 'GET', body = null) {
+            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            if (body) opts.body = JSON.stringify(body);
+            const res = await fetch('/api/v1' + url, opts);
+            const text = await res.text();
+            let json;
+            try { json = JSON.parse(text); } catch { throw new Error('Server chưa nạp code mới. Hãy chạy lại "node server.js".'); }
+            if (!json.success) throw new Error(json.message || 'Có lỗi xảy ra.');
+            return json.data;
+        }
+
+        function quickFill(u, p) {
+            document.getElementById('loginUsername').value = u;
+            document.getElementById('loginPassword').value = p;
+        }
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const username = document.getElementById('loginUser').value;
-            const password = document.getElementById('loginPass').value;
-
             try {
-                const res = await fetch('/api/v1/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                const data = await res.json();
+                const username = document.getElementById('loginUsername').value.trim();
+                const password = document.getElementById('loginPassword').value.trim();
+                currentUser = await api('/auth/login', 'POST', { username, password });
 
-                if (res.ok) {
-                    currentUser = data.user;
-                    alert(`✅ ${data.message}`);
-                    document.getElementById('loginScreen').classList.add('hidden');
-                    document.getElementById('mainApp').classList.remove('hidden');
-                    document.getElementById('lblUserHandled').innerText = `${currentUser.hoTen} (${currentUser.role})`;
-                    
-                    applyRolePermissions(currentUser.role);
-                    loadSystemData();
+                document.getElementById('loginView').classList.add('hidden');
+                document.getElementById('appView').classList.remove('hidden');
+                document.getElementById('headerFullName').textContent = currentUser.fullName;
+
+                const roleLabel = {
+                    LIBRARIAN: 'Tác nhân: Thủ thư',
+                    ADMIN: 'Tác nhân: Quản trị viên',
+                    READER: `Tác nhân: Bạn đọc (${currentUser.cardId})`
+                };
+                document.getElementById('headerRoleBadge').textContent = roleLabel[currentUser.role] || currentUser.role;
+
+                document.getElementById('librarianWorkspace').classList.add('hidden');
+                document.getElementById('adminWorkspace').classList.add('hidden');
+                document.getElementById('readerWorkspace').classList.add('hidden');
+
+                if (currentUser.role === 'LIBRARIAN') {
+                    document.getElementById('librarianWorkspace').classList.remove('hidden');
+                    switchTab('lib', 'borrow');
+                    await refreshLibrarian();
+                } else if (currentUser.role === 'ADMIN') {
+                    document.getElementById('adminWorkspace').classList.remove('hidden');
+                    switchTab('admin', 'users');
+                    await refreshAdmin();
                 } else {
-                    alert(`❌ Lỗi: ${data.message}`);
+                    document.getElementById('readerWorkspace').classList.remove('hidden');
+                    switchTab('reader', 'opac');
+                    await refreshReader();
                 }
-            } catch (err) {
-                alert('Không thể kết nối tới Server!');
-            }
+                showToast(`Đăng nhập thành công (${currentUser.fullName})`);
+            } catch (err) { showToast(err.message, true); }
         });
 
-        function applyRolePermissions(role) {
-            const roleClass = `role-${role.toLowerCase()}`;
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                if (btn.classList.contains(roleClass)) {
-                    btn.classList.remove('hidden');
-                } else {
-                    btn.classList.add('hidden');
-                }
-            });
-
-            if (role === 'READER') {
-                switchTab('tab-opac');
-            } else {
-                switchTab('tab-dashboard');
-            }
-        }
-
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.getElementById(tabId).classList.remove('hidden');
-        }
+        document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const res = await api('/auth/change-password', 'POST', {
+                    username: currentUser.username,
+                    oldPassword: document.getElementById('oldPasswordInput').value,
+                    newPassword: document.getElementById('newPasswordInput').value
+                });
+                showToast(res.message);
+                e.target.reset();
+                closeModal('passwordModal');
+            } catch (err) { showToast(err.message, true); }
+        });
 
         function logout() {
             currentUser = null;
-            document.getElementById('mainApp').classList.add('hidden');
-            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('appView').classList.add('hidden');
+            document.getElementById('loginView').classList.remove('hidden');
         }
 
-        async function loadSystemData() {
-            const res = await fetch('/api/v1/system-summary');
-            const result = await res.json();
-            const data = result.data;
-
-            document.getElementById('cntDauSach').innerText = data.dauSach.length;
-            document.getElementById('cntCuonSach').innerText = data.cuonSach.length;
-            document.getElementById('cntBanDoc').innerText = data.banDoc.length;
-            document.getElementById('cntPhieuMuon').innerText = data.phieuMuon.filter(p => p.trangThai !== 'Đã trả').length;
-
-            document.getElementById('slDauSachNhap').innerHTML = data.dauSach.map(b => `<option value="${b.maDauSach}">${b.maDauSach} - ${b.tenSach}</option>`).join('');
-            document.getElementById('slTheMuon').innerHTML = data.banDoc.filter(c => c.trangThai === 'Hoạt động').map(c => `<option value="${c.maThe}">${c.maThe} - ${c.hoTen}</option>`).join('');
-            document.getElementById('slBarcodeMuon').innerHTML = data.cuonSach.filter(b => b.trangThai === 'Sẵn sàng').map(b => `<option value="${b.maBarcode}">${b.maBarcode} - ${b.tenSach}</option>`).join('');
-
-            document.getElementById('tblCuonSach').innerHTML = data.cuonSach.map(b => `<tr><td class="p-2 font-mono font-bold text-blue-600">${b.maBarcode}</td><td class="p-2">${b.tenSach}</td><td class="p-2"><span class="px-2 py-0.5 rounded text-[10px] ${b.trangThai === 'Sẵn sàng' ? 'bg-green-100 text-green-700 font-bold' : 'bg-red-100 text-red-700'}">${b.trangThai}</span></td></tr>`).join('');
-            document.getElementById('tblBanDoc').innerHTML = data.banDoc.map(c => `<tr><td class="p-2 font-mono font-bold text-emerald-700">${c.maThe}</td><td class="p-2">${c.hoTen} (${c.maSV})</td><td class="p-2">${c.doiTuong}</td><td class="p-2">${c.ngayHetHan}</td><td class="p-2"><span class="bg-green-100 text-green-800 font-bold px-2 py-0.5 rounded">${c.trangThai}</span></td></tr>`).join('');
-            document.getElementById('tblPhieuMuon').innerHTML = data.phieuMuon.map(p => `<tr><td class="p-2 font-mono font-bold text-amber-700">${p.maPhieu}</td><td class="p-2">${p.hoTen}</td><td class="p-2 font-mono">${p.maBarcode}</td><td class="p-2">${p.trangThai === 'Đã trả' ? '<span class="text-slate-400">Đã trả</span>' : `<button onclick="traSach('${p.maPhieu}')" class="bg-blue-600 text-white px-2 py-1 rounded">Trả Sách</button>`}</td></tr>`).join('');
-            document.getElementById('tblThuPhat').innerHTML = data.thuPhat.map(p => `<tr><td class="p-2 font-mono font-bold text-red-700">${p.maBienLai}</td><td class="p-2">${p.hoTen}</td><td class="p-2">${p.lyDo}</td><td class="p-2 font-bold text-red-600">${p.soTien.toLocaleString()} VNĐ</td><td class="p-2 text-slate-500">${p.ngayThu}</td></tr>`).join('');
-            document.getElementById('tblOPAC').innerHTML = data.dauSach.map(b => `<tr><td class="p-2 font-mono font-bold text-indigo-700">${b.maDauSach}</td><td class="p-2 font-bold">${b.tenSach}</td><td class="p-2">${b.theLoai}</td><td class="p-2"><span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">${b.ke}</span></td><td class="p-2">${b.giaBia.toLocaleString()} VNĐ</td></tr>`).join('');
+        function switchTab(prefix, name) {
+            document.querySelectorAll(`.${prefix}-panel`).forEach(el => el.classList.add('hidden'));
+            document.getElementById(`${prefix}-panel-${name}`).classList.remove('hidden');
+            const activeColor = prefix === 'lib' ? 'bg-emerald-600 text-white' : prefix === 'admin' ? 'bg-purple-700 text-white' : 'bg-blue-600 text-white';
+            document.querySelectorAll(`.${prefix}-tab`).forEach(btn => {
+                btn.className = `${prefix}-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-100`;
+            });
+            document.getElementById(`${prefix}-tab-${name}`).className = `${prefix}-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold ${activeColor}`;
         }
 
-        async function themDauSach() {
-            const tenSach = document.getElementById('txtTenSach').value;
-            const giaBia = document.getElementById('txtGiaBia').value;
-            if(!tenSach) return alert('Vui lòng nhập tên đầu sách!');
-            await fetch('/api/v1/dau-sach', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ tenSach, giaBia, theLoai: 'CNTT', tacGia: 'Tác giả', nxb: 'NXB', ke: 'Kệ A1' }) });
-            alert('Khai báo thành công!'); loadSystemData();
+        function buildReportHtml(rep) {
+            const s = rep.summary;
+            return `
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-xs text-slate-500 font-semibold">Đầu sách / Bản sách</div>
+                        <div class="text-2xl font-bold text-slate-900 mt-1">${s.totalBooks} <span class="text-sm font-normal text-slate-500">/ ${s.totalCopies} bản</span></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-xs text-slate-500 font-semibold">Sẵn sàng / Đang mượn</div>
+                        <div class="text-2xl font-bold text-emerald-600 mt-1">${s.availableCopies} <span class="text-sm font-normal text-blue-600">/ ${s.borrowedCopies} mượn</span></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-xs text-slate-500 font-semibold">Thẻ bạn đọc hoạt động</div>
+                        <div class="text-2xl font-bold text-indigo-600 mt-1">${s.activeReaders} <span class="text-sm font-normal text-slate-500">/ ${s.totalReaders} thẻ</span></div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="text-xs text-slate-500 font-semibold">Tổng tiền phạt / Chi nhập</div>
+                        <div class="text-lg font-bold text-rose-600 mt-1">${money(s.totalFinesCollected)}</div>
+                        <div class="text-xs text-slate-500">Nhập kho: ${money(s.totalImportCost)}</div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 class="font-bold text-slate-800 mb-3">Thống kê tài liệu theo Danh mục</h3>
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-600 border-b">
+                            <tr>
+                                <th class="py-2 px-3">Danh mục</th>
+                                <th class="py-2 px-3">Số đầu sách</th>
+                                <th class="py-2 px-3">Tổng bản sao</th>
+                                <th class="py-2 px-3">Sẵn sàng trên kệ</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                            ${rep.byCategory.map(c => `
+                                <tr>
+                                    <td class="py-2 px-3 font-medium">${esc(c.category)}</td>
+                                    <td class="py-2 px-3">${c.bookCount}</td>
+                                    <td class="py-2 px-3">${c.copyCount}</td>
+                                    <td class="py-2 px-3 font-semibold text-emerald-600">${c.availableCount}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
         }
 
-        async function nhapKho() {
-            const maDauSach = document.getElementById('slDauSachNhap').value;
-            const soLuong = document.getElementById('txtSoLuongNhap').value;
-            await fetch('/api/v1/nhap-kho', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ maDauSach, soLuong }) });
-            alert('Nhập kho và sinh Barcode thành công!'); loadSystemData();
+        async function refreshLibrarian() {
+            const [booksData, copies, imports, readers, loans, renewals, report] = await Promise.all([
+                api('/books'),
+                api('/copies'),
+                api('/imports'),
+                api('/readers'),
+                api('/loans'),
+                api('/renewals'),
+                api('/reports')
+            ]);
+
+            allCopiesCache = copies;
+
+            const activeLoans = loans.filter(l => l.status === 'DANG_MUON');
+            document.getElementById('libActiveLoansBody').innerHTML = activeLoans.length ? activeLoans.map(l => `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-2 px-3 font-semibold">${esc(l.loanId)}</td>
+                    <td class="py-2 px-3">${esc(l.readerName)} (${esc(l.cardId)})</td>
+                    <td class="py-2 px-3 font-mono font-bold text-blue-700">${esc(l.barcode)}</td>
+                    <td class="py-2 px-3">${esc(l.bookTitle)}</td>
+                    <td class="py-2 px-3">${esc(l.borrowDate)}</td>
+                    <td class="py-2 px-3 ${l.isOverdue ? 'text-rose-600 font-bold' : ''}">${esc(l.dueDate)}</td>
+                    <td class="py-2 px-3 text-xs">${l.renewCount} lần</td>
+                </tr>
+            `).join('') : '<tr><td colspan="7" class="py-4 text-center text-slate-400">Không có phiếu mượn nào.</td></tr>';
+
+            document.getElementById('libRenewalList').innerHTML = renewals.length ? renewals.map(r => `
+                <div class="p-3 rounded-lg border bg-slate-50 flex justify-between items-center gap-2 text-xs">
+                    <div>
+                        <div class="font-bold text-slate-800">${esc(r.readerName)} (${esc(r.cardId)}) •${esc(r.barcode)}</div>
+                        <div class="text-slate-600">${esc(r.bookTitle)}</div>
+                        <div class="text-blue-700 mt-0.5">Hạn cũ: ${esc(r.currentDueDate)} &rarr; Đề xuất: <b>${esc(r.proposedDueDate)}</b></div>
+                    </div>
+                    <div>
+                        ${r.status === 'CHO_DUYET' ? `
+                            <button onclick="processRenewal('${esc(r.requestId)}', true)" class="bg-emerald-600 text-white px-2.5 py-1 rounded font-semibold">Duyệt</button>
+                            <button onclick="processRenewal('${esc(r.requestId)}', false)" class="bg-rose-600 text-white px-2.5 py-1 rounded font-semibold ml-1">Từ chối</button>
+                        ` : `<span class="font-semibold ${r.status === 'DA_DUYET' ? 'text-emerald-600' : 'text-slate-400'}">${r.status === 'DA_DUYET' ? 'Đã duyệt' : 'Từ chối'}</span>`}
+                    </div>
+                </div>
+            `).join('') : '<p class="text-xs text-slate-400">Chưa có yêu cầu gia hạn nào.</p>';
+
+            const returnedLoans = loans.filter(l => l.status === 'DA_TRA');
+            document.getElementById('libReturnedLoansBody').innerHTML = returnedLoans.length ? returnedLoans.map(l => `
+                <tr>
+                    <td class="py-2 px-3 font-semibold">${esc(l.loanId)}</td>
+                    <td class="py-2 px-3">${esc(l.readerName)} (${esc(l.cardId)})</td>
+                    <td class="py-2 px-3"><span class="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">${esc(l.barcode)}</span>${esc(l.bookTitle)}</td>
+                    <td class="py-2 px-3">${esc(l.dueDate)}</td>
+                    <td class="py-2 px-3">${esc(l.returnDate)}</td>
+                    <td class="py-2 px-3 text-right font-semibold ${l.fineAmount > 0 ? 'text-rose-600' : 'text-slate-500'}">${money(l.fineAmount)}</td>
+                    <td class="py-2 px-3 text-xs">${l.fineAmount === 0 ? 'Không phạt' : (l.fineCollected ? '<span class="text-emerald-600 font-semibold">Đã thu tiền phạt</span>' : 'Chưa thu')}</td>
+                </tr>
+            `).join('') : '<tr><td colspan="7" class="py-4 text-center text-slate-400">Chưa có lịch sử trả sách.</td></tr>';
+
+            renderCopiesTable();
+
+            document.getElementById('bookCategorySelect').innerHTML = booksData.categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+            document.getElementById('categoryBadges').innerHTML = booksData.categories.map(c => `<span class="text-xs bg-slate-100 border px-2.5 py-1 rounded-full">${esc(c)}</span>`).join('');
+            document.getElementById('libBooksBody').innerHTML = booksData.items.map(b => `
+                <tr>
+                    <td class="py-2 px-3 font-mono text-xs">${esc(b.isbn)}</td>
+                    <td class="py-2 px-3 font-semibold">${esc(b.title)}</td>
+                    <td class="py-2 px-3">${esc(b.author)}</td>
+                    <td class="py-2 px-3">${esc(b.category)}</td>
+                    <td class="py-2 px-3">${b.availableCopies} /${b.totalCopies}</td>
+                    <td class="py-2 px-3">
+                        <button onclick="deleteBookItem('${esc(b.isbn)}')" class="text-xs text-rose-600 hover:underline font-semibold">Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('importBookSelect').innerHTML = booksData.items.map(b => `<option value="${esc(b.isbn)}">${esc(b.isbn)} -${esc(b.title)}</option>`).join('');
+            document.getElementById('libImportsBody').innerHTML = imports.map(p => `
+                <tr>
+                    <td class="py-2 px-3 font-bold text-indigo-700">${esc(p.importId)}</td>
+                    <td class="py-2 px-3">${esc(p.importDate)}</td>
+                    <td class="py-2 px-3">${esc(p.bookTitle)}</td>
+                    <td class="py-2 px-3 font-semibold">${p.quantity}</td>
+                    <td class="py-2 px-3">${money(p.totalCost)}</td>
+                    <td class="py-2 px-3 font-mono text-xs">${p.barcodes.join(', ')}</td>
+                </tr>
+            `).join('');
+
+            document.getElementById('libReadersBody').innerHTML = readers.map(r => `
+                <tr>
+                    <td class="py-2 px-3 font-bold text-blue-700">${esc(r.cardId)}</td>
+                    <td class="py-2 px-3"><b>${esc(r.fullName)}</b><br><span class="text-xs text-slate-500">${esc(r.studentCode)} •${esc(r.phone)}</span></td>
+                    <td class="py-2 px-3 font-mono text-xs">${esc(r.username)}</td>
+                    <td class="py-2 px-3">${esc(r.expiryDate)}</td>
+                    <td class="py-2 px-3">
+                        <span class="px-2 py-0.5 text-xs rounded-full font-semibold ${r.status === 'HOAT_DONG' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                            ${r.status === 'HOAT_DONG' ? 'Hoạt động' : 'Bị khóa'}
+                        </span>
+                    </td>
+                    <td class="py-2 px-3 space-x-1">
+                        <button onclick="manageReaderCard('${esc(r.cardId)}', 'RENEW_CARD')" class="bg-blue-50 text-blue-700 border border-blue-200 text-xs px-2.5 py-1 rounded">Gia hạn thẻ</button>
+                        <button onclick="manageReaderCard('${esc(r.cardId)}', 'TOGGLE_LOCK')" class="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded">${r.status === 'HOAT_DONG' ? 'Khóa thẻ' : 'Mở thẻ'}</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('libReportContainer').innerHTML = buildReportHtml(report);
         }
 
-        async function capThe() {
-            const maSV = document.getElementById('txtMaSV').value;
-            const hoTen = document.getElementById('txtHoTenBD').value;
-            const doiTuong = document.getElementById('slDoiTuong').value;
-            if(!maSV || !hoTen) return alert('Nhập mã SV và Họ tên!');
-            const res = await fetch('/api/v1/ban-doc', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ maSV, hoTen, doiTuong }) });
-            const data = await res.json(); alert(data.message); loadSystemData();
+        function renderCopiesTable() {
+            const kw = (document.getElementById('copySearchInput')?.value || '').trim().toLowerCase();
+            const list = allCopiesCache.filter(c => !kw || c.barcode.toLowerCase().includes(kw) || c.bookTitle.toLowerCase().includes(kw) || c.isbn.toLowerCase().includes(kw));
+            document.getElementById('libCopiesBody').innerHTML = list.map(c => `
+                <tr>
+                    <td class="py-2 px-3 font-mono font-bold text-slate-900">${esc(c.barcode)}</td>
+                    <td class="py-2 px-3"><b>${esc(c.bookTitle)}</b> <span class="text-xs text-slate-400">(${esc(c.isbn)})</span></td>
+                    <td class="py-2 px-3">${esc(c.location)}</td>
+                    <td class="py-2 px-3 text-xs font-mono">${esc(c.importId)}</td>
+                    <td class="py-2 px-3">
+                        <span class="px-2 py-0.5 text-xs rounded-full font-semibold ${c.status === 'SAN_SANG' ? 'bg-emerald-100 text-emerald-700' : c.status === 'DANG_MUON' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-800'}">
+                            ${c.status === 'SAN_SANG' ? 'Sẵn sàng' : c.status === 'DANG_MUON' ? 'Đang mượn' : 'Bảo trì'}
+                        </span>
+                    </td>
+                    <td class="py-2 px-3 space-x-1">
+                        <button onclick="openPrintBarcode('${esc(c.barcode)}', '${esc(c.bookTitle)}', '${esc(c.isbn)}', '${esc(c.location)}')"
+                            class="bg-slate-800 hover:bg-slate-900 text-white text-xs px-2.5 py-1 rounded font-medium">
+                            In Barcode
+                        </button>
+                        ${c.status !== 'DANG_MUON' ? `
+                            <button onclick="toggleCopyMaintenance('${esc(c.barcode)}', '${c.status === 'BAO_TRI' ? 'SAN_SANG' : 'BAO_TRI'}')"
+                                class="border text-xs px-2 py-1 rounded hover:bg-slate-100">
+                                ${c.status === 'BAO_TRI' ? 'Mở sẵn sàng' : 'Báo bảo trì'}
+                            </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
         }
 
-        async function lapMuon() {
-            const maThe = document.getElementById('slTheMuon').value;
-            const maBarcode = document.getElementById('slBarcodeMuon').value;
-            const res = await fetch('/api/v1/phieu-muon', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ maThe, maBarcode }) });
-            const data = await res.json(); alert(data.message); loadSystemData();
+        function openPrintBarcode(barcode, title, isbn, location) {
+            document.getElementById('pbTitle').textContent = title;
+            document.getElementById('pbCode').textContent = barcode;
+            document.getElementById('pbMeta').textContent = `ISBN: ${isbn} • Vị trí: ${location}`;
+            openModal('barcodeModal');
         }
 
-        async function traSach(maPhieu) {
-            const res = await fetch('/api/v1/tra-sach', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ maPhieu }) });
-            const data = await res.json(); alert(data.message); loadSystemData();
+        async function toggleCopyMaintenance(barcode, status) {
+            try {
+                await api(`/copies/${barcode}`, 'PUT', { status });
+                showToast('Đã cập nhật trạng thái bản sách.');
+                await refreshLibrarian();
+            } catch (err) { showToast(err.message, true); }
         }
+
+        document.getElementById('borrowForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const loan = await api('/loans/borrow', 'POST', {
+                    cardId: document.getElementById('borrowCardId').value,
+                    barcode: document.getElementById('borrowBarcode').value
+                });
+                showToast(`Đã lập phiếu mượn ${loan.loanId} (Hạn trả: ${loan.dueDate})`);
+                e.target.reset();
+                await refreshLibrarian();
+            } catch (err) { showToast(err.message, true); }
+        });
+
+        document.getElementById('returnForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const res = await api('/loans/return', 'POST', {
+                    barcode: document.getElementById('returnBarcode').value,
+                    customReturnDate: document.getElementById('returnCustomDate').value,
+                    collectFine: document.getElementById('collectFineCheck').checked
+                });
+                showToast(res.fineAmount > 0 ? `Đã trả sách! Trễ ${res.overdueDays} ngày — Tiền phạt: ${money(res.fineAmount)}` : 'Đã xử lý trả sách đúng hạn!');
+                e.target.reset();
+                await refreshLibrarian();
+            } catch (err) { showToast(err.message, true); }
+        });
+
+        async function processRenewal(requestId, approved) {
+            try {
+                await api(`/renewals/${requestId}/process`, 'POST', { approved });
+                showToast(approved ? 'Đã duyệt yêu cầu gia hạn sách!' : 'Đã từ chối yêu cầu gia hạn.');
+                await refreshLibrarian();
+            } catch (err) { showToast(err.message, true); }
+        }
+
+        document.getElementById('addBookForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                await api('/books', 'POST', {
+                    isbn: document.getElementById('bookIsbn').value,
+                    title: document.getElementById('bookTitle').value,
+                    author: document.getElementById('bookAuthor').value,
+                    category: document.getElementById('bookCategorySelect').value,
+                    publisher: document.getElementById('bookPublisher').value,
+                    publishYear: document.getElementById('bookYear').value
+                });
+                showToast('Đã thêm đầu sách mới!');
+                e.target.reset();
+                await refreshLibrarian();
+            } catch (err) { showToast(err.message, true); }
+        });
+
+        document.getElementById('addCategoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                await api('/categories', 'POST', { name: document.getElementById('newCategoryName').value });
+                showToast('Đã thêm danh mục mới!');
+                e.target.reset();
+                await refreshLibrarian();
+            } catch (err) { showToast(err.message, true); }
+        });
+
+        async function deleteBookItem(isbn) {
+            try {
+                await api(`/books/${encodeURIComponent(isbn)}`, 'DELETE');
+                showToast('Đã xóa đầu sách.');
+                await refreshLibrarian();
+            } catch (err) { showToast(err.message, true); }
+        }
+
+        document.getElementById('importSlipForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const slip = await api('/imports', 'POST', {
+                    isbn: document.getElementById('importBookSelect').value,
+                    quantity: document.getElementById('importQty').value,
+                    unitPrice: document.getElementById('importPrice').value,
+                    supplier: document.getElementById('importSupplier').value,
+                    location: document.getElementById('importLocation').value,
+                    librarian: currentUser.fullName,
+                    note: document.getElementById('importNote').value
+                });
+                showToast(`Đã lập phiếu nhập ${slip.importId} & sinh ${slip.barcodes.length} mã Barcode!`);
+                e.target.reset();
+                await refreshLibrarian();
+            } catch (err) { showToast(err.message, true); }
+        });
+
+        document.getElementById('createReaderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const res = await api('/readers', 'POST', {
+                    fullName: document.getElementById('readerFullName').value,
+                    studentCode: document.getElementById('readerStudentCode').value,
+                    phone: document.getElementById('readerPhone').value,
+                    email: document.getElementById('readerEmail').value,
+                    username: document.getElementById('readerUsername').value,
+                    password: document.getElementById('readerPassword').value
+                });
+                showToast(`Đã cấp thẻ ${res.reader.cardId} & tài khoản "${res.username}"!`);
+                e.target.reset();
+                await refreshLibrarian();
+            } catch (err) { showToast(err.message, true); }
+        });
+
+        async function manageReaderCard(cardId, action) {
+            try {
+                await api(`/readers/${cardId}`, 'PUT', { action });
+                showToast('Đã cập nhật trạng thái thẻ bạn đọc!');
+                await refreshLibrarian();
+            } catch (err) { showToast(err.message, true); }
+        }
+
+        async function refreshAdmin() {
+            const [users, settings, report] = await Promise.all([
+                api('/users'),
+                api('/settings'),
+                api('/reports')
+            ]);
+
+            document.getElementById('adminUsersBody').innerHTML = users.map(u => `
+                <tr>
+                    <td class="py-2.5 px-3 font-mono text-xs">${esc(u.id)}</td>
+                    <td class="py-2.5 px-3 font-semibold">${esc(u.username)}</td>
+                    <td class="py-2.5 px-3">${esc(u.fullName)}</td>
+                    <td class="py-2.5 px-3">
+                        <select onchange="changeUserRole('${esc(u.id)}', this.value)" class="border rounded px-2 py-1 text-xs bg-white" ${u.username === 'admin' ? 'disabled' : ''}>
+                            <option value="ADMIN" ${u.role === 'ADMIN' ? 'selected' : ''}>Quản trị viên</option>
+                            <option value="LIBRARIAN" ${u.role === 'LIBRARIAN' ? 'selected' : ''}>Thủ thư</option>
+                            <option value="READER" ${u.role === 'READER' ? 'selected' : ''}>Bạn đọc</option>
+                        </select>
+                    </td>
+                    <td class="py-2.5 px-3">
+                        <span class="px-2 py-0.5 text-xs rounded-full font-semibold ${u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                            ${u.active ? 'Hoạt động' : 'Đã khóa'}
+                        </span>
+                    </td>
+                    <td class="py-2.5 px-3 space-x-1">
+                        ${u.username !== 'admin' ? `
+                            <button onclick="toggleUserActive('${esc(u.id)}', ${!u.active})" class="border text-xs px-2.5 py-1 rounded hover:bg-slate-100">
+                                ${u.active ? 'Khóa TK' : 'Mở khóa'}
+                            </button>
+                        ` : ''}
+                        <button onclick="resetPasswordAdmin('${esc(u.id)}', '${esc(u.username)}')" class="bg-slate-100 text-xs px-2.5 py-1 rounded hover:bg-slate-200">
+                            Reset MK (123)
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            document.getElementById('setFinePerDay').value = settings.finePerDay;
+            document.getElementById('setDefaultLoanDays').value = settings.defaultLoanDays;
+            document.getElementById('setMaxBooks').value = settings.maxBooksPerReader;
+            document.getElementById('setRenewDays').value = settings.renewDays;
+            document.getElementById('setMaxRenewals').value = settings.maxRenewals;
+            document.getElementById('setCardMonths').value = settings.cardValidMonths;
+
+            document.getElementById('adminReportContainer').innerHTML = buildReportHtml(report);
+        }
+
+        document.getElementById('createStaffUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const u = await api('/users', 'POST', {
+                    fullName: document.getElementById('staffFullName').value,
+                    username: document.getElementById('staffUsername').value,
+                    password: document.getElementById('staffPassword').value,
+                    role: document.getElementById('staffRole').value
+                });
+                showToast(`Đã tạo tài khoản "${u.username}" (${u.role})!`);
+                e.target.reset();
+                await refreshAdmin();
+            } catch (err) { showToast(err.message, true); }
+        });
+
+        async function changeUserRole(userId, role) {
+            try {
+                await api(`/users/${userId}`, 'PUT', { role });
+                showToast('Đã cập nhật phân quyền người dùng.');
+                await refreshAdmin();
+            } catch (err) { showToast(err.message, true); }
+        }
+
+        async function toggleUserActive(userId, active) {
+            try {
+                await api(`/users/${userId}`, 'PUT', { active });
+                showToast(active ? 'Đã mở khóa tài khoản.' : 'Đã khóa tài khoản.');
+                await refreshAdmin();
+            } catch (err) { showToast(err.message, true); }
+        }
+
+        async function resetPasswordAdmin(userId, username) {
+            try {
+                await api(`/users/${userId}/reset-password`, 'POST', { newPassword: '123' });
+                showToast(`Đã đặt lại mật khẩu tài khoản "${username}" thành 123.`);
+            } catch (err) { showToast(err.message, true); }
+        }
+
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                await api('/settings', 'POST', {
+                    finePerDay: document.getElementById('setFinePerDay').value,
+                    defaultLoanDays: document.getElementById('setDefaultLoanDays').value,
+                    maxBooksPerReader: document.getElementById('setMaxBooks').value,
+                    renewDays: document.getElementById('setRenewDays').value,
+                    maxRenewals: document.getElementById('setMaxRenewals').value,
+                    cardValidMonths: document.getElementById('setCardMonths').value
+                });
+                showToast('Đã lưu cấu hình quy định thư viện!');
+            } catch (err) { showToast(err.message, true); }
+        });
+
+        async function refreshReader() {
+            const portal = await api(`/readers/${currentUser.cardId}/portal`);
+            document.getElementById('rdFullName').textContent = portal.reader.fullName;
+            document.getElementById('rdCardId').textContent = portal.reader.cardId;
+            document.getElementById('rdExpiry').textContent = portal.reader.expiryDate;
+            document.getElementById('rdActiveCount').textContent = `${portal.activeLoans.length} /${portal.settings.maxBooksPerReader}`;
+            document.getElementById('rdFineTotal').textContent = money(portal.totalFine);
+
+            document.getElementById('rdActiveLoansBody').innerHTML = portal.activeLoans.length ? portal.activeLoans.map(l => `
+                <tr>
+                    <td class="py-2.5 px-3 font-semibold">${esc(l.loanId)}</td>
+                    <td class="py-2.5 px-3 font-mono text-xs font-bold text-blue-700">${esc(l.barcode)}</td>
+                    <td class="py-2.5 px-3 font-medium">${esc(l.bookTitle)}</td>
+                    <td class="py-2.5 px-3">${esc(l.borrowDate)}</td>
+                    <td class="py-2.5 px-3 font-semibold ${l.isOverdue ? 'text-rose-600' : ''}">${esc(l.dueDate)}</td>
+                    <td class="py-2.5 px-3">
+                        ${l.isOverdue
+                            ? `<span class="px-2 py-0.5 text-xs bg-rose-100 text-rose-700 rounded-full font-semibold">Quá hạn ${l.overdueDays} ngày (${money(l.estimatedFine)})</span>`
+                            : '<span class="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full font-semibold">Trong hạn trả</span>'}
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="6" class="py-4 text-center text-slate-400">Bạn hiện không mượn cuốn sách nào.</td></tr>';
+
+            document.getElementById('rdHistoryLoansBody').innerHTML = portal.historyLoans.length ? portal.historyLoans.map(l => `
+                <tr>
+                    <td class="py-2.5 px-3 font-semibold">${esc(l.loanId)}</td>
+                    <td class="py-2.5 px-3">${esc(l.bookTitle)}</td>
+                    <td class="py-2.5 px-3">${esc(l.borrowDate)}</td>
+                    <td class="py-2.5 px-3">${esc(l.returnDate)}</td>
+                    <td class="py-2.5 px-3 text-right font-semibold ${l.fineAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}">${money(l.fineAmount)}</td>
+                </tr>
+            `).join('') : '<tr><td colspan="5" class="py-4 text-center text-slate-400">Chưa có lịch sử mượn trả.</td></tr>';
+
+            const eligibleLoans = portal.activeLoans.filter(l => l.canRequestRenew);
+            document.getElementById('renewLoanSelect').innerHTML = eligibleLoans.length
+                ? eligibleLoans.map(l => `<option value="${esc(l.loanId)}">${esc(l.loanId)} - ${esc(l.bookTitle)} (Hạn: ${esc(l.dueDate)})</option>`).join('')
+                : '<option value="">Không có sách đủ điều kiện gia hạn</option>';
+
+            document.getElementById('rdRenewalsBody').innerHTML = portal.renewalRequests.length ? portal.renewalRequests.map(r => `
+                <tr>
+                    <td class="py-2.5 px-3 font-semibold">${esc(r.requestId)}</td>
+                    <td class="py-2.5 px-3">${esc(r.bookTitle)} (${esc(r.barcode)})</td>
+                    <td class="py-2.5 px-3">${esc(r.currentDueDate)} &rarr; <b>${esc(r.proposedDueDate)}</b></td>
+                    <td class="py-2.5 px-3 text-slate-600">${esc(r.reason)}</td>
+                    <td class="py-2.5 px-3">
+                        ${r.status === 'CHO_DUYET' ? '<span class="px-2 py-0.5 text-xs bg-amber-100 text-amber-800 rounded-full font-semibold">Chờ Thủ thư duyệt</span>' :
+                          r.status === 'DA_DUYET' ? '<span class="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full font-semibold">Đã duyệt gia hạn</span>' :
+                          '<span class="px-2 py-0.5 text-xs bg-rose-100 text-rose-700 rounded-full font-semibold">Từ chối</span>'}
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="5" class="py-4 text-center text-slate-400">Bạn chưa gửi yêu cầu gia hạn nào.</td></tr>';
+
+            await loadOpac();
+        }
+
+        async function loadOpac() {
+            const kw = document.getElementById('opacKeyword').value;
+            const cat = document.getElementById('opacCategory').value;
+            const data = await api(`/books?q=${encodeURIComponent(kw)}&category=${encodeURIComponent(cat)}`);
+
+            const catSelect = document.getElementById('opacCategory');
+            if (catSelect.options.length <= 1) {
+                data.categories.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    catSelect.appendChild(opt);
+                });
+            }
+
+            document.getElementById('opacResultsGrid').innerHTML = data.items.length ? data.items.map(b => `
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">${esc(b.isbn)}</span>
+                        <span class="text-xs font-semibold ${b.availableCopies > 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                            Còn sẵn: ${b.availableCopies} /${b.totalCopies} bản
+                        </span>
+                    </div>
+                    <h4 class="font-bold text-slate-900">${esc(b.title)}</h4>
+                    <p class="text-xs text-slate-500">Tác giả: <b>${esc(b.author)}</b> • Danh mục: ${esc(b.category)} • NXB: ${esc(b.publisher)} (${b.publishYear})</p>
+                    <div class="flex flex-wrap gap-1 pt-1">
+                        ${b.copies.map(c => `<span class="text-[11px] font-mono px-2 py-0.5 rounded ${c.status === 'SAN_SANG' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400'}">${esc(c.barcode)} • ${esc(c.location)}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('') : '<div class="col-span-2 bg-white p-8 rounded-xl text-center text-slate-400">Không tìm thấy sách phù hợp.</div>';
+        }
+
+        document.getElementById('renewRequestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const loanId = document.getElementById('renewLoanSelect').value;
+                if (!loanId) throw new Error('Không có sách hợp lệ để gia hạn.');
+                await api('/renewals', 'POST', {
+                    cardId: currentUser.cardId,
+                    loanId,
+                    reason: document.getElementById('renewReasonInput').value
+                });
+                showToast('Đã gửi yêu cầu gia hạn trực tuyến tới Thủ thư!');
+                e.target.reset();
+                await refreshReader();
+            } catch (err) { showToast(err.message, true); }
+        });
     </script>
 </body>
 </html>
